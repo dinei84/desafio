@@ -132,18 +132,18 @@ Erros de contrato usam `INVALID_*` e `REFERENCE_REQUIRED`. Conflitos usam `IDEMP
 
 ## Autenticação e observabilidade
 
-Autenticação foi omitida para concentrar o exemplo nos critérios financeiros, conforme seção 2 do desafio. `ProviderIdentityGuard` é o ponto explícito de extensão. A evolução seria validar tokens OIDC de Keycloak/Zitadel via JWKS, issuer e audience e vincular o claim de identidade a `providerId`; autorização de abertura/consulta de wallets teria escopo próprio. Health é separado do guard. Não existe tabela própria de senhas.
+Autenticação foi omitida para concentrar a implementação nos critérios financeiros, conforme seção 2 do desafio. `ProviderIdentityGuard` é o ponto explícito de extensão. A evolução seria validar tokens OIDC de Keycloak/Zitadel via JWKS, issuer e audience e vincular o claim de identidade a `providerId`; autorização de abertura/consulta de wallets teria escopo próprio. Health é separado do guard. Não existe tabela própria de senhas.
 
 Logs JSON incluem IDs de correlação, mensagem, transação, wallet e provider, além do código de falha das rejeições, sem valores financeiros ou payloads completos. Métricas Prometheus cobrem status, duplicatas, retries, DLQ explícita, conflitos de locks, latência, lag da outbox e divergências de reconciliação. As séries com label são pré-inicializadas em zero, para que um alerta não dependa da primeira ocorrência para existir. O contador local de DLQ não observa redrives nativos; em produção seria combinado com métricas do SQS. Métricas em memória são por instância e reiniciam com o processo; não são garantias de consistência.
 
 Reconciliação adquire o mesmo lock da wallet para comparar um estado consistente. Divergências são retornadas, logadas e contadas; nunca corrigidas automaticamente. Liveness verifica processo, readiness consulta banco e as três filas.
 
-## Limites do exemplo
+## Limites conhecidos
 
 As constraints diferidas reconstroem o ledger por wallet em cada commit financeiro. Isso oferece verificação forte e legível, mas tem custo linear no histórico da wallet; para grande escala seria preciso estudar invariantes incrementais e reconciliação assíncrona sem enfraquecer as garantias. A wallet é a unidade de contenção intencional.
 
 O cursor do ledger é base64url de um JSON com `walletId` e `sequence`, validado contra a wallet consultada. Ele é estável e inofensivo, mas não é assinado: um cliente pode forjar um cursor para pular entradas do próprio histórico. Assinar exigiria uma chave a gerenciar, o que não se justifica num endpoint sem autenticação; com um IdP no lugar, essa seria a mudança natural.
 
-Não foram implementados IdP, double-entry, tracing distribuído, dashboard, arquivamento de auditoria ou benchmark. Não há número de throughput declarado. O exemplo usa credenciais locais, um usuário de banco amplo e não pretende ser uma configuração de produção. O Compose persiste PostgreSQL; LocalStack recria filas ao subir `setup`, mas não está configurado para durabilidade do broker entre remoções de containers. Outbox já publicada depende da durabilidade oferecida pelo SQS em produção.
+Não foram implementados IdP, double-entry, tracing distribuído, dashboard, arquivamento de auditoria ou benchmark. Não há número de throughput declarado. A implementação usa credenciais locais, um usuário de banco amplo e não pretende ser uma configuração de produção. O Compose persiste PostgreSQL; LocalStack recria filas ao subir `setup`, mas não está configurado para durabilidade do broker entre remoções de containers. Outbox já publicada depende da durabilidade oferecida pelo SQS em produção.
 
 Referências oficiais consultadas: [transações TypeORM](https://typeorm.io/docs/transactions/), [QueryRunner](https://typeorm.io/docs/query-runner/) e [visibilidade SQS](https://docs.aws.amazon.com/AWSSimpleQueueService/latest/SQSDeveloperGuide/sqs-visibility-timeout.html).

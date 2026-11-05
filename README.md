@@ -1,4 +1,4 @@
-# Distributed Wagering Processor — solução de exemplo
+# Distributed Wagering Processor — implementação do desafio
 
 Implementação do [desafio original](docs/CHALLENGE.md) com Bun, TypeScript estrito, NestJS, TypeORM, PostgreSQL e SQS via LocalStack. Inclui três instâncias, ledger imutável, idempotência persistente, inbox, outbox e recuperação de referências fora de ordem.
 

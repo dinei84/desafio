@@ -1,0 +1,65 @@
+name: wagering-example
+x-app: &app
+  build: .
+  environment: &app-env
+    DATABASE_URL: postgres://wager:wager@postgres:5432/wager
+    SQS_ENDPOINT: http://localstack:4566
+    AWS_REGION: us-east-1
+    AWS_ACCESS_KEY_ID: test
+    AWS_SECRET_ACCESS_KEY: test
+  depends_on:
+    setup:
+      condition: service_completed_successfully
+  init: true
+  stop_grace_period: 45s
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: wager
+      POSTGRES_PASSWORD: wager
+      POSTGRES_DB: wager
+    ports: ["5432:5432"]
+    volumes: ["postgres-data:/var/lib/postgresql/data"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U wager -d wager"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+  localstack:
+    image: localstack/localstack:4.14.0
+    environment:
+      SERVICES: sqs
+      AWS_DEFAULT_REGION: us-east-1
+      SQS_ENDPOINT_STRATEGY: dynamic
+    ports: ["4566:4566"]
+    healthcheck:
+      test: ["CMD", "awslocal", "sqs", "list-queues"]
+      interval: 3s
+      timeout: 5s
+      retries: 40
+  setup:
+    <<: *app
+    depends_on:
+      postgres:
+        condition: service_healthy
+      localstack:
+        condition: service_healthy
+    command: ["sh", "-c", "bun run migration:run && bun run queues:init"]
+  api:
+    <<: *app
+    ports: ["${HTTP_PORT:-3000}:3000"]
+  api2:
+    <<: *app
+    ports: ["${HTTP_PORT_2:-3001}:3000"]
+  api3:
+    <<: *app
+    ports: ["${HTTP_PORT_3:-3002}:3000"]
+  tests:
+    <<: *app
+    profiles: ["test"]
+    environment:
+      <<: *app-env
+    command: ["sh", "-c", "bun run typecheck && bun test test/unit.test.ts && bun run test:integration"]
+volumes:
+  postgres-data:
